@@ -5,7 +5,7 @@ A terminal-based command bookmark manager with fuzzy search.
 ## Installation
 
 ```bash
-go install github.com/sammcj/bkmk/cmd/bkmk@latest
+go install github.com/sammcj/bkmk/cmd/bkmk@HEAD
 ```
 
 Or build from source:

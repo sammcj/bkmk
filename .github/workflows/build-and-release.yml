@@ -389,7 +389,7 @@ jobs:
             ### Option 1: Install with `go install`
 
             ```shell
-            go install github.com/sammcj/bkmk/cmd/bkmk@latest
+            go install github.com/sammcj/bkmk/cmd/bkmk@HEAD
             ```
 
             ### Option 2: Download pre-built binaries

@@ -216,15 +216,15 @@ func (m Model) viewHistory() string {
 	itemStyle := lipgloss.NewStyle().PaddingLeft(2)
 	selectedStyle := lipgloss.NewStyle().
 		PaddingLeft(2).
-		Foreground(lipgloss.Color("255")).
+		Foreground(lipgloss.Color("170")).
 		Bold(true)
 
 	selectedCmdStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("255")).
+		Foreground(lipgloss.Color("170")).
 		Bold(true)
 
 	cmdStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("245"))
+		Foreground(lipgloss.Color("252"))
 
 	errorStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("196"))
@@ -263,9 +263,9 @@ func (m Model) viewHistory() string {
 		}
 
 		timeStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("243"))
+			Foreground(lipgloss.Color("246"))
 		selectedTimeStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("250"))
+			Foreground(lipgloss.Color("170"))
 
 		endIdx := min(offset+displayCount, totalItems)
 		for i := offset; i < endIdx; i++ {
