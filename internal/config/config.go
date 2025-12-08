@@ -124,12 +124,17 @@ func (c *Config) SaveTo(path string) error {
 		}
 	}
 
-	data, err := yaml.Marshal(c)
-	if err != nil {
+	var buf strings.Builder
+	enc := yaml.NewEncoder(&buf)
+	enc.SetIndent(2)
+	if err := enc.Encode(c); err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
+	if err := enc.Close(); err != nil {
+		return fmt.Errorf("failed to close encoder: %w", err)
+	}
 
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := os.WriteFile(path, []byte(buf.String()), 0o644); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 
@@ -284,6 +289,26 @@ func (c *Config) RemoveGroup(name string) error {
 		}
 	}
 	return fmt.Errorf("group %q not found", name)
+}
+
+func (c *Config) RenameGroup(oldName, newName string) error {
+	if oldName == newName {
+		return nil
+	}
+	// Check new name doesn't already exist
+	for _, g := range c.Groups {
+		if g.Name == newName {
+			return fmt.Errorf("group %q already exists", newName)
+		}
+	}
+	// Find and rename the group
+	for i, g := range c.Groups {
+		if g.Name == oldName {
+			c.Groups[i].Name = newName
+			return nil
+		}
+	}
+	return fmt.Errorf("group %q not found", oldName)
 }
 
 func (c *Config) RemoveCommand(groupName, cmdNameOrID string) error {

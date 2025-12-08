@@ -44,10 +44,11 @@ Commands have unique auto-incrementing IDs (tracked via `NextID` in config). The
 
 ## General Information
 
+- Always build, lint and test from the `make` command entrypoint
 - Always follow the latest golang best practices for 2025
 - When changing or adding new functionality:
   - Follow the existing code and interface styles
   - Add a simple, lightweight unit test created
   - Ensure the README is kept up to date and free off fluff
-  - Always run `make lint && make test` after adding, changing or removing features or functionality and ensure there are no warnings or errors
+  - Always run `make lint && make test && make build` after adding, changing or removing features or functionality and ensure there are no warnings or errors
 - Always use Australian English spelling in all code, comments and documentation

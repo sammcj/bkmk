@@ -46,3 +46,14 @@ func RunCommand(command string) error {
 
 	return cmd.Run()
 }
+
+// OpenInEditor opens the given path in the user's $EDITOR.
+// Returns an exec.Cmd ready to be executed (caller handles stdin/stdout).
+func OpenInEditor(path string) (*exec.Cmd, error) {
+	editor := os.Getenv("EDITOR")
+	if editor == "" {
+		editor = "vi"
+	}
+
+	return exec.Command(editor, path), nil
+}

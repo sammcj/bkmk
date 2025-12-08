@@ -80,7 +80,7 @@ func TestReadHistoryFromLimit(t *testing.T) {
 
 	// Write many commands
 	content := ""
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		content += "command" + string(rune('0'+i%10)) + "\n"
 	}
 	if err := os.WriteFile(histFile, []byte(content), 0o644); err != nil {

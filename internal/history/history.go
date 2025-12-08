@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -132,10 +133,8 @@ func parseHistoryLine(line string) string {
 
 	// Skip common non-useful commands
 	skip := []string{"ls", "cd", "pwd", "clear", "exit", "history"}
-	for _, s := range skip {
-		if line == s {
-			return ""
-		}
+	if slices.Contains(skip, line) {
+		return ""
 	}
 
 	return line

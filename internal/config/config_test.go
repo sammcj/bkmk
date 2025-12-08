@@ -150,6 +150,40 @@ func TestRemoveGroup(t *testing.T) {
 	}
 }
 
+func TestRenameGroup(t *testing.T) {
+	cfg := &Config{}
+	if err := cfg.AddGroup("original"); err != nil {
+		t.Fatalf("AddGroup failed: %v", err)
+	}
+	if err := cfg.AddGroup("other"); err != nil {
+		t.Fatalf("AddGroup other failed: %v", err)
+	}
+
+	// Rename to new name
+	if err := cfg.RenameGroup("original", "renamed"); err != nil {
+		t.Fatalf("RenameGroup failed: %v", err)
+	}
+
+	if cfg.Groups[0].Name != "renamed" {
+		t.Errorf("expected group name 'renamed', got %q", cfg.Groups[0].Name)
+	}
+
+	// Rename to same name should succeed (no-op)
+	if err := cfg.RenameGroup("renamed", "renamed"); err != nil {
+		t.Errorf("RenameGroup to same name should not fail: %v", err)
+	}
+
+	// Rename to existing group name should fail
+	if err := cfg.RenameGroup("renamed", "other"); err == nil {
+		t.Error("expected error when renaming to existing group name")
+	}
+
+	// Rename non-existent group should fail
+	if err := cfg.RenameGroup("nonexistent", "newname"); err == nil {
+		t.Error("expected error when renaming non-existent group")
+	}
+}
+
 func TestRemoveCommand(t *testing.T) {
 	cfg := &Config{}
 	if err := cfg.AddGroup("docker"); err != nil {
@@ -292,7 +326,7 @@ func TestBackupPruning(t *testing.T) {
 	}
 
 	// Save 25 times to exceed maxBackups (20)
-	for i := 0; i < 25; i++ {
+	for i := range 25 {
 		cfg.Groups[0].Name = "test" + string(rune('A'+i))
 		if err := cfg.SaveTo(path); err != nil {
 			t.Fatalf("SaveTo iteration %d failed: %v", i, err)
