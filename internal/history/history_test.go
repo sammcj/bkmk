@@ -8,32 +8,39 @@ import (
 
 func TestParseHistoryLine(t *testing.T) {
 	tests := []struct {
-		input    string
-		expected string
+		input       string
+		expected    string
+		hasTimestamp bool
 	}{
-		// Regular commands
-		{"docker ps -a", "docker ps -a"},
-		{"git status", "git status"},
+		// Regular commands (no timestamp)
+		{"docker ps -a", "docker ps -a", false},
+		{"git status", "git status", false},
 
-		// Zsh extended format
-		{": 1699000000:0;docker build -t test .", "docker build -t test ."},
-		{": 1699000000:0;git commit -m \"test\"", "git commit -m \"test\""},
+		// Zsh extended format (with timestamp)
+		{": 1699000000:0;docker build -t test .", "docker build -t test .", true},
+		{": 1699000000:0;git commit -m \"test\"", "git commit -m \"test\"", true},
 
 		// Should skip short/common commands
-		{"ls", ""},
-		{"cd", ""},
-		{"pwd", ""},
-		{"", ""},
-		{"a", ""},
+		{"ls", "", false},
+		{"cd", "", false},
+		{"pwd", "", false},
+		{"", "", false},
+		{"a", "", false},
 
 		// Whitespace handling
-		{"  docker ps  ", "docker ps"},
+		{"  docker ps  ", "docker ps", false},
 	}
 
 	for _, tt := range tests {
-		result := parseHistoryLine(tt.input)
+		result, ts := parseHistoryLine(tt.input)
 		if result != tt.expected {
 			t.Errorf("parseHistoryLine(%q) = %q, want %q", tt.input, result, tt.expected)
+		}
+		if tt.hasTimestamp && ts.IsZero() {
+			t.Errorf("parseHistoryLine(%q) should have timestamp", tt.input)
+		}
+		if !tt.hasTimestamp && !ts.IsZero() {
+			t.Errorf("parseHistoryLine(%q) should not have timestamp", tt.input)
 		}
 	}
 }

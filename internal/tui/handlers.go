@@ -223,6 +223,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleHistoryKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Calculate page size for page up/down
+	pageSize := m.historyPageSize()
+
 	switch msg.String() {
 	case "ctrl+c":
 		m.quitting = true
@@ -243,6 +246,13 @@ func (m Model) handleHistoryKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.cursor > 0 {
 			m.cursor--
 		}
+		return m, nil
+	case "pgdown", "ctrl+down":
+		maxCursor := len(m.filteredHistory) - 1
+		m.cursor = min(m.cursor+pageSize, maxCursor)
+		return m, nil
+	case "pgup", "ctrl+up":
+		m.cursor = max(m.cursor-pageSize, 0)
 		return m, nil
 	case "enter":
 		if len(m.filteredHistory) > 0 && m.cursor < len(m.filteredHistory) {

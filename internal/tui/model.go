@@ -264,6 +264,16 @@ func (m Model) maxCursor() int {
 	return 0
 }
 
+// historyPageSize returns the number of visible history items for page up/down
+func (m Model) historyPageSize() int {
+	reservedLines := 8
+	pageSize := m.height - reservedLines
+	if pageSize < 5 {
+		pageSize = 5
+	}
+	return pageSize
+}
+
 func (m Model) Selected() *config.FlatCommand {
 	return m.selected
 }

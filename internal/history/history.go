@@ -5,12 +5,15 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
+	"time"
 )
 
 type Entry struct {
-	Command string
-	Index   int
+	Command   string
+	Index     int
+	Timestamp time.Time
 }
 
 func GetHistoryPath() (string, error) {
@@ -91,7 +94,7 @@ func ReadHistoryFrom(path string, limit int) ([]Entry, error) {
 
 	// Read from end (most recent first)
 	for i := len(allLines) - 1; i >= 0; i-- {
-		cmd := parseHistoryLine(allLines[i])
+		cmd, ts := parseHistoryLine(allLines[i])
 		if cmd == "" {
 			continue
 		}
@@ -103,8 +106,9 @@ func ReadHistoryFrom(path string, limit int) ([]Entry, error) {
 		seen[cmd] = true
 
 		entries = append(entries, Entry{
-			Command: cmd,
-			Index:   len(entries),
+			Command:   cmd,
+			Index:     len(entries),
+			Timestamp: ts,
 		})
 
 		if limit > 0 && len(entries) >= limit {
@@ -115,10 +119,20 @@ func ReadHistoryFrom(path string, limit int) ([]Entry, error) {
 	return entries, nil
 }
 
-func parseHistoryLine(line string) string {
+func parseHistoryLine(line string) (string, time.Time) {
+	var ts time.Time
+
 	// Handle zsh extended history format: : timestamp:0;command
 	if strings.HasPrefix(line, ": ") {
 		if idx := strings.Index(line, ";"); idx != -1 {
+			// Extract timestamp between ": " and ":"
+			tsPart := line[2:idx]
+			if colonIdx := strings.Index(tsPart, ":"); colonIdx != -1 {
+				tsPart = tsPart[:colonIdx]
+			}
+			if epoch, err := strconv.ParseInt(tsPart, 10, 64); err == nil {
+				ts = time.Unix(epoch, 0)
+			}
 			line = line[idx+1:]
 		}
 	}
@@ -128,14 +142,14 @@ func parseHistoryLine(line string) string {
 
 	// Skip empty lines and very short commands
 	if len(line) < 2 {
-		return ""
+		return "", ts
 	}
 
 	// Skip common non-useful commands
 	skip := []string{"ls", "cd", "pwd", "clear", "exit", "history"}
 	if slices.Contains(skip, line) {
-		return ""
+		return "", ts
 	}
 
-	return line
+	return line, ts
 }

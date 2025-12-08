@@ -216,7 +216,11 @@ func (m Model) viewHistory() string {
 	itemStyle := lipgloss.NewStyle().PaddingLeft(2)
 	selectedStyle := lipgloss.NewStyle().
 		PaddingLeft(2).
-		Foreground(lipgloss.Color("170")).
+		Foreground(lipgloss.Color("255")).
+		Bold(true)
+
+	selectedCmdStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("255")).
 		Bold(true)
 
 	cmdStyle := lipgloss.NewStyle().
@@ -237,28 +241,84 @@ func (m Model) viewHistory() string {
 	} else if len(m.filteredHistory) == 0 {
 		s += itemStyle.Render("No matching commands in history.") + "\n"
 	} else {
-		displayCount := min(15, len(m.filteredHistory))
-		for i := range displayCount {
+		// Calculate available lines for history items
+		// Header: title (1) + blank (1) + search (1) + blank (1) = 4
+		// Footer: blank (1) + help (1) + optional "more" line (1) = 3
+		reservedLines := 8
+		availableLines := m.height - reservedLines
+		if availableLines < 5 {
+			availableLines = 5 // minimum visible items
+		}
+
+		displayCount := min(availableLines, len(m.filteredHistory))
+		totalItems := len(m.filteredHistory)
+
+		// Calculate scroll offset to keep cursor visible
+		offset := 0
+		if m.cursor >= displayCount {
+			offset = m.cursor - displayCount + 1
+		}
+		if offset+displayCount > totalItems {
+			offset = max(0, totalItems-displayCount)
+		}
+
+		timeStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("243"))
+		selectedTimeStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("250"))
+
+		endIdx := min(offset+displayCount, totalItems)
+		for i := offset; i < endIdx; i++ {
 			entry := m.filteredHistory[i]
 			cursor := "  "
 			style := itemStyle
+			cmdSt := cmdStyle
+			timeSt := timeStyle
 			if m.cursor == i {
 				cursor = "> "
 				style = selectedStyle
+				cmdSt = selectedCmdStyle
+				timeSt = selectedTimeStyle
 			}
-			// Truncate long commands for display
+
+			// Format timestamp if available
+			timeStr := ""
+			if !entry.Timestamp.IsZero() {
+				timeStr = entry.Timestamp.Local().Format("02 Jan 15:04") + " "
+			}
+			timeWidth := len(timeStr)
+
+			// Truncate long commands for display (account for timestamp width)
 			cmd := entry.Command
-			if len(cmd) > m.width-10 && m.width > 20 {
-				cmd = cmd[:m.width-13] + "..."
+			maxCmdWidth := m.width - 10 - timeWidth
+			if len(cmd) > maxCmdWidth && maxCmdWidth > 10 {
+				cmd = cmd[:maxCmdWidth-3] + "..."
 			}
-			s += style.Render(cursor) + cmdStyle.Render(cmd) + "\n"
+
+			if timeStr != "" {
+				s += style.Render(cursor) + timeSt.Render(timeStr) + cmdSt.Render(cmd) + "\n"
+			} else {
+				s += style.Render(cursor) + cmdSt.Render(cmd) + "\n"
+			}
 		}
-		if len(m.filteredHistory) > displayCount {
-			s += itemStyle.Render(fmt.Sprintf("... and %d more", len(m.filteredHistory)-displayCount)) + "\n"
+
+		// Show scroll indicators
+		if offset > 0 || endIdx < totalItems {
+			scrollInfo := ""
+			if offset > 0 {
+				scrollInfo = fmt.Sprintf("↑ %d more above", offset)
+			}
+			if endIdx < totalItems {
+				if scrollInfo != "" {
+					scrollInfo += " | "
+				}
+				scrollInfo += fmt.Sprintf("↓ %d more below", totalItems-endIdx)
+			}
+			s += itemStyle.Render(scrollInfo) + "\n"
 		}
 	}
 
-	s += "\n" + helpStyle.Render("ctrl+n/p navigate | enter select | esc back")
+	s += "\n" + helpStyle.Render("↑/↓ navigate | pgup/pgdn page | enter select | esc back")
 
 	return s
 }
