@@ -260,25 +260,37 @@ func (c *Config) AddCommand(groupName, cmdName, command, description string) err
 }
 
 func (c *Config) AddCommandWithAction(groupName, cmdName, command, description string, action ActionType) error {
+	// Find or create the group
+	groupIdx := -1
 	for i, g := range c.Groups {
 		if g.Name == groupName {
-			for _, cmd := range g.Commands {
-				if cmd.Name == cmdName {
-					return fmt.Errorf("command %q already exists in group %q", cmdName, groupName)
-				}
-			}
-			c.Groups[i].Commands = append(c.Groups[i].Commands, Command{
-				ID:            c.NextID,
-				Name:          cmdName,
-				Command:       command,
-				Description:   description,
-				DefaultAction: action,
-			})
-			c.NextID++
-			return nil
+			groupIdx = i
+			break
 		}
 	}
-	return fmt.Errorf("group %q not found", groupName)
+
+	if groupIdx == -1 {
+		// Auto-create the group
+		c.Groups = append(c.Groups, Group{Name: groupName, Commands: []Command{}})
+		groupIdx = len(c.Groups) - 1
+	}
+
+	// Check for duplicate command name
+	for _, cmd := range c.Groups[groupIdx].Commands {
+		if cmd.Name == cmdName {
+			return fmt.Errorf("command %q already exists in group %q", cmdName, groupName)
+		}
+	}
+
+	c.Groups[groupIdx].Commands = append(c.Groups[groupIdx].Commands, Command{
+		ID:            c.NextID,
+		Name:          cmdName,
+		Command:       command,
+		Description:   description,
+		DefaultAction: action,
+	})
+	c.NextID++
+	return nil
 }
 
 func (c *Config) RemoveGroup(name string) error {

@@ -235,15 +235,15 @@ func TestGetFrequentCommandsFrom(t *testing.T) {
 	histFile := filepath.Join(tmpDir, ".test_history")
 
 	// Write test history with repeated commands (zsh format with recent timestamps)
-	// Use timestamps from late 2025 to ensure they're within the date window
-	content := `: 1765200000:0;docker ps -a
-: 1765200001:0;git status
-: 1765200002:0;docker ps -a
+	// Commands must be 13+ chars to pass filter
+	content := `: 1765200000:0;docker ps --all
+: 1765200001:0;git status -s
+: 1765200002:0;docker ps --all
 : 1765200003:0;kubectl get pods -n default
-: 1765200004:0;docker ps -a
+: 1765200004:0;docker ps --all
 : 1765200005:0;kubectl get pods -n default
 : 1765200006:0;ls
-: 1765200007:0;git commit -m "test"
+: 1765200007:0;git commit -m "test message"
 `
 	if err := os.WriteFile(histFile, []byte(content), 0o644); err != nil {
 		t.Fatalf("Failed to write test history: %v", err)
@@ -255,8 +255,8 @@ func TestGetFrequentCommandsFrom(t *testing.T) {
 		t.Fatalf("GetFrequentCommandsFrom failed: %v", err)
 	}
 
-	// Should have: docker ps -a (3x), kubectl get pods -n default (2x), git commit -m "test" (1x)
-	// git status only has 2 args so it should be included
+	// Should have: docker ps --all (3x), kubectl get pods -n default (2x), git commit -m "test message" (1x)
+	// git status -s is only 13 chars so included
 	if len(commands) < 3 {
 		t.Errorf("Expected at least 3 commands, got %d", len(commands))
 		for _, c := range commands {
@@ -265,12 +265,12 @@ func TestGetFrequentCommandsFrom(t *testing.T) {
 	}
 
 	// Most frequent should be first
-	if len(commands) > 0 && commands[0].Command != "docker ps -a" {
-		t.Errorf("Expected 'docker ps -a' as most frequent, got %q", commands[0].Command)
+	if len(commands) > 0 && commands[0].Command != "docker ps --all" {
+		t.Errorf("Expected 'docker ps --all' as most frequent, got %q", commands[0].Command)
 	}
 
 	if len(commands) > 0 && commands[0].Count != 3 {
-		t.Errorf("Expected count of 3 for 'docker ps -a', got %d", commands[0].Count)
+		t.Errorf("Expected count of 3 for 'docker ps --all', got %d", commands[0].Count)
 	}
 }
 
@@ -278,24 +278,25 @@ func TestGetFrequentCommandsFrom_MinArgs(t *testing.T) {
 	tmpDir := t.TempDir()
 	histFile := filepath.Join(tmpDir, ".test_history")
 
-	content := `docker
-docker ps
-docker ps -a
+	// Commands must be 13+ chars
+	content := `docker container list --all
+git status --short
 kubectl get pods -n default
 `
 	if err := os.WriteFile(histFile, []byte(content), 0o644); err != nil {
 		t.Fatalf("Failed to write test history: %v", err)
 	}
 
-	// Require 3+ args
-	commands, err := GetFrequentCommandsFrom(histFile, 365, 3, 10)
+	// Require 4+ args
+	commands, err := GetFrequentCommandsFrom(histFile, 365, 4, 10)
 	if err != nil {
 		t.Fatalf("GetFrequentCommandsFrom failed: %v", err)
 	}
 
-	// Should only have: docker ps -a, kubectl get pods -n default
+	// Should only have: docker container list --all (4 args), kubectl get pods -n default (5 args)
+	// git status --short has 3 args so filtered out
 	if len(commands) != 2 {
-		t.Errorf("Expected 2 commands with 3+ args, got %d", len(commands))
+		t.Errorf("Expected 2 commands with 4+ args, got %d", len(commands))
 		for _, c := range commands {
 			t.Logf("  %dx: %s (args: %d)", c.Count, c.Command, countArgs(c.Command))
 		}
@@ -306,11 +307,12 @@ func TestGetFrequentCommandsFrom_Limit(t *testing.T) {
 	tmpDir := t.TempDir()
 	histFile := filepath.Join(tmpDir, ".test_history")
 
-	content := `cmd1 arg1
-cmd2 arg1
-cmd3 arg1
-cmd4 arg1
-cmd5 arg1
+	// Commands must be 13+ chars
+	content := `command1 argument1
+command2 argument1
+command3 argument1
+command4 argument1
+command5 argument1
 `
 	if err := os.WriteFile(histFile, []byte(content), 0o644); err != nil {
 		t.Fatalf("Failed to write test history: %v", err)
@@ -330,9 +332,10 @@ func TestGetFrequentCommandsFrom_SkipsBkmk(t *testing.T) {
 	tmpDir := t.TempDir()
 	histFile := filepath.Join(tmpDir, ".test_history")
 
+	// Commands must be 13+ chars
 	content := `bkmk add docker ps
-bkmk suggest
-docker ps -a
+bkmk suggest --all
+docker ps --all --format json
 `
 	if err := os.WriteFile(histFile, []byte(content), 0o644); err != nil {
 		t.Fatalf("Failed to write test history: %v", err)
@@ -343,7 +346,7 @@ docker ps -a
 		t.Fatalf("GetFrequentCommandsFrom failed: %v", err)
 	}
 
-	// Should only have docker ps -a, bkmk commands filtered out
+	// Should only have docker command, bkmk commands filtered out
 	if len(commands) != 1 {
 		t.Errorf("Expected 1 command (bkmk filtered), got %d", len(commands))
 		for _, c := range commands {
@@ -351,8 +354,8 @@ docker ps -a
 		}
 	}
 
-	if len(commands) > 0 && commands[0].Command != "docker ps -a" {
-		t.Errorf("Expected 'docker ps -a', got %q", commands[0].Command)
+	if len(commands) > 0 && commands[0].Command != "docker ps --all --format json" {
+		t.Errorf("Expected 'docker ps --all --format json', got %q", commands[0].Command)
 	}
 }
 

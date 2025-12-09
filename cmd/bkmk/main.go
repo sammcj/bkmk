@@ -26,21 +26,21 @@ func main() {
 	}
 
 	switch os.Args[1] {
-	case "add-group", "ag":
+	case "add-group", "ag", "--add-group":
 		addGroup()
-	case "add", "a":
+	case "add", "a", "--add":
 		addCommand()
-	case "remove-group", "rg":
+	case "remove-group", "rg", "--remove-group":
 		removeGroup()
-	case "remove", "rm":
+	case "remove", "rm", "--remove":
 		removeCommand()
-	case "list", "ls":
+	case "list", "ls", "--list":
 		listAll()
-	case "history", "hist":
+	case "history", "hist", "--history":
 		runHistoryTUI()
 	case "last", "-l", "--last":
 		addLastCommand()
-	case "suggest", "freq":
+	case "suggest", "freq", "--suggest":
 		suggestCommands()
 	case "version", "-v", "--version":
 		printVersion()
@@ -319,7 +319,7 @@ func suggestCommands() {
 	}
 
 	fmt.Println()
-	fmt.Println("Add one with: bkmk add <group> <name> \"<command>\"")
+	fmt.Println("Add one with: bkmk add <group> \"<name>\" \"<command>\"")
 }
 
 func printVersion() {
@@ -338,7 +338,7 @@ Usage:
   bkmk remove <group> <name>        Remove a command (alias: rm)
   bkmk list                         List all groups and commands (alias: ls)
   bkmk history                      Browse shell history to add commands (alias: hist)
-  bkmk --last                       Bookmark the last command from shell history (alias: -l)
+  bkmk last                         Bookmark the last command from shell history (alias: -l)
   bkmk suggest                      Show frequently used commands to bookmark (alias: freq)
   bkmk version                      Show version information
   bkmk help                         Show this help message
@@ -360,7 +360,7 @@ Examples:
   bkmk add docker ps "docker ps -a" "List all containers"
   bkmk add docker logs "docker logs -f" "Follow container logs"
   bkmk history
-  bkmk --last                       # Bookmark the command you just ran
+  bkmk last                         # Bookmark the command you just ran
 
 Config: ~/.config/bkmk/config.yaml
 `

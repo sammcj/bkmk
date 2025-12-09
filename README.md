@@ -23,7 +23,7 @@ make build
 # Launch interactive TUI
 bkmk
 
-bkmk --last # Bookmark the last command you ran
+bkmk last # Bookmark the last command you ran
 
 bkmk history # Browse shell history to add commands
 
@@ -42,7 +42,7 @@ You can optionally add a shell alias for convenience:
 
 ```bash
 alias b='bkmk'
-alias bl='bkmk --last'
+alias bl='bkmk last'
 ```
 
 ## TUI Controls

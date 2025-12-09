@@ -112,9 +112,15 @@ func TestAddCommand(t *testing.T) {
 		t.Errorf("expected command name 'ps', got %q", cmd.Name)
 	}
 
-	// Adding to non-existent group should fail
-	if err := cfg.AddCommand("nonexistent", "test", "test", ""); err == nil {
-		t.Error("expected error when adding to non-existent group")
+	// Adding to non-existent group should auto-create the group
+	if err := cfg.AddCommand("newgroup", "test", "test cmd", "test desc"); err != nil {
+		t.Fatalf("AddCommand should auto-create group: %v", err)
+	}
+	newGroup := cfg.GetGroup("newgroup")
+	if newGroup == nil {
+		t.Error("expected group 'newgroup' to be auto-created")
+	} else if len(newGroup.Commands) != 1 || newGroup.Commands[0].Name != "test" {
+		t.Error("expected command 'test' in auto-created group")
 	}
 
 	// Adding duplicate command should fail

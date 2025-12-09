@@ -209,8 +209,8 @@ func GetFrequentCommandsFrom(path string, daysBack, minArgs, limit int) ([]Frequ
 			continue
 		}
 
-		// Filter by minimum argument count
-		if countArgs(cmd) < minArgs {
+		// Filter by minimum argument count and length
+		if countArgs(cmd) < minArgs || len(cmd) < 13 {
 			continue
 		}
 
