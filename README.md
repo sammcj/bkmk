@@ -38,6 +38,16 @@ bkmk remove-group docker
 
 # Browse shell history to add commands
 bkmk history
+
+# Bookmark the last command you ran
+bkmk --last
+```
+
+You can optionally add a shell alias for convenience:
+
+```bash
+alias b='bkmk'
+alias bl='bkmk --last'
 ```
 
 ## TUI Controls

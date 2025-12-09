@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/sammcj/bkmk/internal/config"
+	"github.com/sammcj/bkmk/internal/history"
 	"github.com/sammcj/bkmk/internal/runner"
 	"github.com/sammcj/bkmk/internal/tui"
 )
@@ -37,6 +38,8 @@ func main() {
 		listAll()
 	case "history", "hist":
 		runHistoryTUI()
+	case "last", "-l", "--last":
+		addLastCommand()
 	case "version", "-v", "--version":
 		printVersion()
 	case "help", "-h", "--help":
@@ -99,6 +102,44 @@ func runHistoryTUI() {
 	}
 
 	m := tui.NewWithHistory(cfg)
+	p := tea.NewProgram(m, tea.WithAltScreen())
+
+	_, err = p.Run()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error running TUI: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func addLastCommand() {
+	// Get recent commands from shell history, filtering out bkmk commands
+	entries, err := history.ReadHistory(20)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error reading shell history: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Find the first command that isn't a bkmk command
+	var lastCmd string
+	for _, entry := range entries {
+		if !strings.HasPrefix(entry.Command, "bkmk") {
+			lastCmd = entry.Command
+			break
+		}
+	}
+
+	if lastCmd == "" {
+		fmt.Fprintln(os.Stderr, "No commands found in shell history (excluding bkmk commands)")
+		os.Exit(1)
+	}
+
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+
+	m := tui.NewWithLastCommand(cfg, lastCmd)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 
 	_, err = p.Run()
@@ -265,6 +306,7 @@ Usage:
   bkmk remove <group> <name>        Remove a command (alias: rm)
   bkmk list                         List all groups and commands (alias: ls)
   bkmk history                      Browse shell history to add commands (alias: hist)
+  bkmk --last                       Bookmark the last command from shell history (alias: -l)
   bkmk version                      Show version information
   bkmk help                         Show this help message
 
@@ -285,6 +327,7 @@ Examples:
   bkmk add docker ps "docker ps -a" "List all containers"
   bkmk add docker logs "docker logs -f" "Follow container logs"
   bkmk history
+  bkmk --last                       # Bookmark the command you just ran
 
 Config: ~/.config/bkmk/config.yaml
 `

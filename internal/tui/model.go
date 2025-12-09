@@ -114,6 +114,16 @@ func NewWithHistory(cfg *config.Config) Model {
 	return m
 }
 
+// NewWithLastCommand creates a TUI that starts directly in group selection
+// with the provided command pre-filled, for quickly bookmarking a command.
+func NewWithLastCommand(cfg *config.Config, command string) Model {
+	m := New(cfg)
+	m.selectedHistCmd = command
+	m.mode = viewHistorySelectGroup
+	m.cursor = 0
+	return m
+}
+
 func (m *Model) refreshData() {
 	m.groups = m.config.Groups
 	m.flatCommands = m.config.FlatCommands()
