@@ -1,6 +1,8 @@
 # bkmk
 
-A terminal-based command bookmark manager with fuzzy search.
+A terminal-based command bookmark manager.
+
+Provides a simple TUI to bookmark, group and search complicated or less frequently used shell commands
 
 ## Installation
 

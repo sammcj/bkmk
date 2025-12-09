@@ -2,9 +2,32 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 )
+
+func (m Model) renderHeader() string {
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("205"))
+
+	configStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241"))
+
+	left := titleStyle.Render("bkmk: Command Bookmarks")
+	right := configStyle.Render("Config: " + m.configPath)
+
+	leftWidth := lipgloss.Width(left)
+	rightWidth := lipgloss.Width(right)
+	gap := m.width - leftWidth - rightWidth
+
+	if gap < 2 {
+		return left + "\n"
+	}
+
+	return left + strings.Repeat(" ", gap) + right + "\n"
+}
 
 func (m Model) View() string {
 	if m.quitting && m.selected != nil {
@@ -43,11 +66,6 @@ func (m Model) View() string {
 }
 
 func (m Model) viewGroups() string {
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("205")).
-		MarginBottom(1)
-
 	itemStyle := lipgloss.NewStyle().PaddingLeft(2)
 	selectedStyle := lipgloss.NewStyle().
 		PaddingLeft(2).
@@ -58,7 +76,7 @@ func (m Model) viewGroups() string {
 		Foreground(lipgloss.Color("241")).
 		MarginTop(1)
 
-	s := titleStyle.Render("Command Bookmarks") + "\n\n"
+	s := m.renderHeader() + "\n"
 
 	if len(m.groups) == 0 {
 		s += itemStyle.Render("No groups yet. Press 'a' to add one.") + "\n"
@@ -86,11 +104,6 @@ func (m Model) viewGroups() string {
 }
 
 func (m Model) viewCommands() string {
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("205")).
-		MarginBottom(1)
-
 	groupStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("141")).
 		MarginBottom(1)
@@ -112,7 +125,7 @@ func (m Model) viewCommands() string {
 		Foreground(lipgloss.Color("241")).
 		MarginTop(1)
 
-	s := titleStyle.Render("Command Bookmarks") + "\n"
+	s := m.renderHeader()
 	if !m.selectedGroupValid() {
 		s += groupStyle.Render("No group selected") + "\n\n"
 		return s
@@ -173,7 +186,7 @@ func (m Model) viewSearch() string {
 		Foreground(lipgloss.Color("241")).
 		MarginTop(1)
 
-	s := titleStyle.Render("Search Commands") + "\n\n"
+	s := titleStyle.Render("bkmk: Search Commands") + "\n\n"
 	s += m.searchInput.View() + "\n\n"
 
 	if len(m.filtered) == 0 {
@@ -233,7 +246,7 @@ func (m Model) viewHistory() string {
 		Foreground(lipgloss.Color("241")).
 		MarginTop(1)
 
-	s := titleStyle.Render("Shell History") + "\n\n"
+	s := titleStyle.Render("bkmk: Shell History") + "\n\n"
 	s += m.historySearch.View() + "\n\n"
 
 	if m.historyError != "" {
@@ -348,7 +361,7 @@ func (m Model) viewHistorySelectGroup() string {
 		Foreground(lipgloss.Color("241")).
 		MarginTop(1)
 
-	s := titleStyle.Render("Select Group") + "\n\n"
+	s := titleStyle.Render("bkmk: Select Group") + "\n\n"
 
 	// Show selected command preview
 	cmdPreview := m.selectedHistCmd
@@ -415,7 +428,7 @@ func (m Model) viewHistoryAddDetails() string {
 		Foreground(lipgloss.Color("241")).
 		MarginTop(1)
 
-	s := titleStyle.Render("Add from History") + "\n"
+	s := titleStyle.Render("bkmk: Add from History") + "\n"
 	groupName := "Unknown"
 	if m.selectedGroupValid() {
 		groupName = m.groups[m.selectedGroup].Name
@@ -466,7 +479,7 @@ func (m Model) viewAddGroup() string {
 		Foreground(lipgloss.Color("241")).
 		MarginTop(1)
 
-	s := titleStyle.Render("Add Group") + "\n\n"
+	s := titleStyle.Render("bkmk: Add Group") + "\n\n"
 	s += labelStyle.Render("Name:") + "\n"
 	s += m.formInputs[0].View() + "\n"
 
@@ -497,7 +510,7 @@ func (m Model) viewEditGroup() string {
 		Foreground(lipgloss.Color("241")).
 		MarginTop(1)
 
-	s := titleStyle.Render("Rename Group") + "\n\n"
+	s := titleStyle.Render("bkmk: Rename Group") + "\n\n"
 	s += labelStyle.Render("Name:") + "\n"
 	s += m.formInputs[0].View() + "\n"
 
@@ -533,7 +546,7 @@ func (m Model) viewAddCommand() string {
 
 	labels := []string{"Name:", "Command:", "Description:"}
 
-	s := titleStyle.Render("Add Command") + "\n"
+	s := titleStyle.Render("bkmk: Add Command") + "\n"
 	groupName := "Unknown"
 	if m.selectedGroupValid() {
 		groupName = m.groups[m.selectedGroup].Name
@@ -581,7 +594,7 @@ func (m Model) viewEditCommand() string {
 
 	labels := []string{"Name:", "Command:", "Description:"}
 
-	s := titleStyle.Render("Edit Command") + "\n"
+	s := titleStyle.Render("bkmk: Edit Command") + "\n"
 	groupName := "Unknown"
 	if m.selectedGroupValid() {
 		groupName = m.groups[m.selectedGroup].Name
@@ -620,7 +633,7 @@ func (m Model) viewDeleteConfirm() string {
 		Foreground(lipgloss.Color("241")).
 		MarginTop(1)
 
-	s := titleStyle.Render("Confirm Delete") + "\n\n"
+	s := titleStyle.Render("bkmk: Confirm Delete") + "\n\n"
 
 	if m.deleteTarget == deleteGroup {
 		s += messageStyle.Render(fmt.Sprintf("Delete group '%s' and all its commands?", m.deleteGroupName)) + "\n"
@@ -657,7 +670,7 @@ func (m Model) viewActionSelect() string {
 		Foreground(lipgloss.Color("241")).
 		MarginTop(1)
 
-	s := titleStyle.Render("Select Action") + "\n\n"
+	s := titleStyle.Render("bkmk: Select Action") + "\n\n"
 
 	if m.actionCmd != nil {
 		// Show command preview

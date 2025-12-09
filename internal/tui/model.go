@@ -77,6 +77,9 @@ type Model struct {
 	actionCursor int
 	actionResult string
 	actionError  string
+
+	// Config path for display
+	configPath string
 }
 
 func New(cfg *config.Config) Model {
@@ -90,6 +93,8 @@ func New(cfg *config.Config) Model {
 	histSearch.CharLimit = 256
 	histSearch.Width = 50
 
+	cfgPath, _ := config.DefaultPath()
+
 	return Model{
 		config:        cfg,
 		groups:        cfg.Groups,
@@ -100,6 +105,7 @@ func New(cfg *config.Config) Model {
 		mode:          viewGroups,
 		width:         80,
 		height:        24,
+		configPath:    cfgPath,
 	}
 }
 
