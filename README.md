@@ -35,7 +35,7 @@ bkmk remove-group docker # Remove a group
 bkmk add docker ps "docker ps -a" "List all containers" # Add a command to a group
 bkmk remove docker ps # Remove a command
 
-bkmk suggest # Show frequently used commands (good candidates for bookmarking)
+bkmk suggest # Show frequently used commands that may be good candidates for bookmarking
 ```
 
 You can optionally add a shell alias for convenience:
@@ -47,18 +47,18 @@ alias bl='bkmk last'
 
 ## TUI Controls
 
-| Key              | Action                          |
-|------------------|---------------------------------|
-| `↑/↓` or `j/k`   | Navigate                        |
-| `Enter` or `Tab` | Select group / open action menu |
-| `/`              | Search all commands (fuzzy)     |
-| `h`              | Browse shell history to add     |
-| `Ctrl+N/P`       | Navigate search results         |
+| Key              | Action                                                   |
+|------------------|----------------------------------------------------------|
+| `↑/↓` or `j/k`   | Navigate                                                 |
+| `Enter` or `Tab` | Select group / open action menu                          |
+| `/`              | Search all commands (fuzzy)                              |
+| `h`              | Browse shell history to add                              |
+| `Ctrl+N/P`       | Navigate search results                                  |
 | `a`              | Add group (in groups view) or command (in commands view) |
-| `e`              | Edit selected command           |
-| `d`              | Delete selected item (with confirmation) |
-| `Esc`            | Go back / cancel                |
-| `q` or `Ctrl+C`  | Quit                            |
+| `e`              | Edit selected command                                    |
+| `d`              | Delete selected item (with confirmation)                 |
+| `Esc`            | Go back / cancel                                         |
+| `q` or `Ctrl+C`  | Quit                                                     |
 
 ### Action Menu
 

@@ -294,9 +294,9 @@ func listAll() {
 
 func suggestCommands() {
 	const (
-		defaultDays    = 60
+		defaultDays    = 90
 		defaultMinArgs = 2
-		defaultLimit   = 20
+		defaultLimit   = 40
 	)
 
 	commands, err := history.GetFrequentCommands(defaultDays, defaultMinArgs, defaultLimit)

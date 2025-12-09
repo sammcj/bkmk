@@ -205,8 +205,15 @@ func GetFrequentCommandsFrom(path string, daysBack, minArgs, limit int) ([]Frequ
 		}
 
 		// Filter by date if timestamps available
-		if hasTimestamps && !ts.IsZero() && ts.Before(cutoff) {
-			continue
+		if hasTimestamps {
+			// Skip entries without timestamps (likely multiline fragments)
+			if ts.IsZero() {
+				continue
+			}
+			// Skip entries older than cutoff
+			if ts.Before(cutoff) {
+				continue
+			}
 		}
 
 		// Filter by minimum argument count and length
