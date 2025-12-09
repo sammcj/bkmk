@@ -5,10 +5,17 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
+
+// FrequentCommand represents a command with its frequency count.
+type FrequentCommand struct {
+	Command string
+	Count   int
+}
 
 type Entry struct {
 	Command   string
@@ -152,4 +159,154 @@ func parseHistoryLine(line string) (string, time.Time) {
 	}
 
 	return line, ts
+}
+
+// GetFrequentCommands analyses shell history and returns the most frequently
+// used commands that have at least minArgs arguments, from the last daysBack days.
+// Returns up to limit results sorted by frequency (descending).
+func GetFrequentCommands(daysBack, minArgs, limit int) ([]FrequentCommand, error) {
+	path, err := GetHistoryPath()
+	if err != nil {
+		return nil, err
+	}
+	return GetFrequentCommandsFrom(path, daysBack, minArgs, limit)
+}
+
+// GetFrequentCommandsFrom analyses shell history from a specific file.
+func GetFrequentCommandsFrom(path string, daysBack, minArgs, limit int) ([]FrequentCommand, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	cutoff := time.Now().AddDate(0, 0, -daysBack)
+	counts := make(map[string]int)
+	hasTimestamps := false
+
+	scanner := bufio.NewScanner(file)
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 1024*1024)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+
+		cmd, ts := parseHistoryLine(line)
+		if cmd == "" {
+			continue
+		}
+
+		// Track if we have timestamp support
+		if !ts.IsZero() {
+			hasTimestamps = true
+		}
+
+		// Filter by date if timestamps available
+		if hasTimestamps && !ts.IsZero() && ts.Before(cutoff) {
+			continue
+		}
+
+		// Filter by minimum argument count
+		if countArgs(cmd) < minArgs {
+			continue
+		}
+
+		// Skip bkmk commands
+		if strings.HasPrefix(cmd, "bkmk") {
+			continue
+		}
+
+		// Skip line continuations and fragments from multiline commands
+		if isMultilineFragment(cmd) {
+			continue
+		}
+
+		counts[cmd]++
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	// Convert to slice and sort by frequency
+	result := make([]FrequentCommand, 0, len(counts))
+	for cmd, count := range counts {
+		result = append(result, FrequentCommand{Command: cmd, Count: count})
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Count != result[j].Count {
+			return result[i].Count > result[j].Count
+		}
+		return result[i].Command < result[j].Command // stable sort by command name
+	})
+
+	// Limit results
+	if limit > 0 && len(result) > limit {
+		result = result[:limit]
+	}
+
+	return result, nil
+}
+
+// countArgs returns the number of space-separated arguments in a command.
+// Handles quoted strings as single arguments.
+func countArgs(cmd string) int {
+	var count int
+	var inQuote rune
+	var hasContent bool
+
+	for _, r := range cmd {
+		switch {
+		case inQuote != 0:
+			if r == inQuote {
+				inQuote = 0
+			}
+		case r == '"' || r == '\'':
+			inQuote = r
+			hasContent = true
+		case r == ' ' || r == '\t':
+			if hasContent {
+				count++
+				hasContent = false
+			}
+		default:
+			hasContent = true
+		}
+	}
+
+	if hasContent {
+		count++
+	}
+
+	return count
+}
+
+// isMultilineFragment returns true if cmd looks like a fragment from a
+// multiline command or heredoc rather than a standalone command.
+func isMultilineFragment(cmd string) bool {
+	// Too long - likely a heredoc or embedded content
+	if len(cmd) > 300 {
+		return true
+	}
+
+	// Line continuations (ends with backslash)
+	if strings.HasSuffix(cmd, "\\") {
+		return true
+	}
+
+	// Must start with something that looks like a command
+	// (letter, path, variable, or sudo/env prefix)
+	if len(cmd) == 0 {
+		return true
+	}
+	first := cmd[0]
+	isValidStart := (first >= 'a' && first <= 'z') ||
+		(first >= 'A' && first <= 'Z') ||
+		first == '.' || first == '/' || first == '~' || first == '$'
+
+	return !isValidStart
 }

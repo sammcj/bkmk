@@ -40,6 +40,8 @@ func main() {
 		runHistoryTUI()
 	case "last", "-l", "--last":
 		addLastCommand()
+	case "suggest", "freq":
+		suggestCommands()
 	case "version", "-v", "--version":
 		printVersion()
 	case "help", "-h", "--help":
@@ -290,6 +292,36 @@ func listAll() {
 	fmt.Println()
 }
 
+func suggestCommands() {
+	const (
+		defaultDays    = 60
+		defaultMinArgs = 2
+		defaultLimit   = 20
+	)
+
+	commands, err := history.GetFrequentCommands(defaultDays, defaultMinArgs, defaultLimit)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error reading shell history: %v\n", err)
+		os.Exit(1)
+	}
+
+	if len(commands) == 0 {
+		fmt.Println("No frequently used commands found matching criteria.")
+		fmt.Println("(Looking for commands with 2+ arguments from the last 60 days)")
+		return
+	}
+
+	fmt.Println("Frequently used commands (good candidates for bookmarking):")
+	fmt.Println()
+
+	for i, cmd := range commands {
+		fmt.Printf("%2d. [%dx] %s\n", i+1, cmd.Count, cmd.Command)
+	}
+
+	fmt.Println()
+	fmt.Println("Add one with: bkmk add <group> <name> \"<command>\"")
+}
+
 func printVersion() {
 	fmt.Printf("bkmk %s (commit: %s, built: %s)\n", Version, Commit, BuildDate)
 }
@@ -307,6 +339,7 @@ Usage:
   bkmk list                         List all groups and commands (alias: ls)
   bkmk history                      Browse shell history to add commands (alias: hist)
   bkmk --last                       Bookmark the last command from shell history (alias: -l)
+  bkmk suggest                      Show frequently used commands to bookmark (alias: freq)
   bkmk version                      Show version information
   bkmk help                         Show this help message
 

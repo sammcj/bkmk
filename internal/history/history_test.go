@@ -3,6 +3,7 @@ package history
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -202,4 +203,193 @@ func TestGetHistoryPath_HISTFILENonExistent(t *testing.T) {
 	// but if it doesn't exist, fallback is appropriate
 	_, _ = GetHistoryPath()
 	// Just verifying no panic - actual result depends on system state
+}
+
+func TestCountArgs(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected int
+	}{
+		{"ls", 1},
+		{"docker ps", 2},
+		{"docker ps -a", 3},
+		{"git commit -m \"hello world\"", 4},
+		{"echo 'single quoted'", 2},
+		{"kubectl get pods -n default", 5},
+		{"", 0},
+		{"   ", 0},
+		{"cmd   with   spaces", 3},
+		{`echo "nested 'quotes' here"`, 2},
+	}
+
+	for _, tt := range tests {
+		result := countArgs(tt.input)
+		if result != tt.expected {
+			t.Errorf("countArgs(%q) = %d, want %d", tt.input, result, tt.expected)
+		}
+	}
+}
+
+func TestGetFrequentCommandsFrom(t *testing.T) {
+	tmpDir := t.TempDir()
+	histFile := filepath.Join(tmpDir, ".test_history")
+
+	// Write test history with repeated commands (zsh format with recent timestamps)
+	// Use timestamps from late 2025 to ensure they're within the date window
+	content := `: 1765200000:0;docker ps -a
+: 1765200001:0;git status
+: 1765200002:0;docker ps -a
+: 1765200003:0;kubectl get pods -n default
+: 1765200004:0;docker ps -a
+: 1765200005:0;kubectl get pods -n default
+: 1765200006:0;ls
+: 1765200007:0;git commit -m "test"
+`
+	if err := os.WriteFile(histFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("Failed to write test history: %v", err)
+	}
+
+	// Get frequent commands with 2+ args
+	commands, err := GetFrequentCommandsFrom(histFile, 365, 2, 10)
+	if err != nil {
+		t.Fatalf("GetFrequentCommandsFrom failed: %v", err)
+	}
+
+	// Should have: docker ps -a (3x), kubectl get pods -n default (2x), git commit -m "test" (1x)
+	// git status only has 2 args so it should be included
+	if len(commands) < 3 {
+		t.Errorf("Expected at least 3 commands, got %d", len(commands))
+		for _, c := range commands {
+			t.Logf("  %dx: %s", c.Count, c.Command)
+		}
+	}
+
+	// Most frequent should be first
+	if len(commands) > 0 && commands[0].Command != "docker ps -a" {
+		t.Errorf("Expected 'docker ps -a' as most frequent, got %q", commands[0].Command)
+	}
+
+	if len(commands) > 0 && commands[0].Count != 3 {
+		t.Errorf("Expected count of 3 for 'docker ps -a', got %d", commands[0].Count)
+	}
+}
+
+func TestGetFrequentCommandsFrom_MinArgs(t *testing.T) {
+	tmpDir := t.TempDir()
+	histFile := filepath.Join(tmpDir, ".test_history")
+
+	content := `docker
+docker ps
+docker ps -a
+kubectl get pods -n default
+`
+	if err := os.WriteFile(histFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("Failed to write test history: %v", err)
+	}
+
+	// Require 3+ args
+	commands, err := GetFrequentCommandsFrom(histFile, 365, 3, 10)
+	if err != nil {
+		t.Fatalf("GetFrequentCommandsFrom failed: %v", err)
+	}
+
+	// Should only have: docker ps -a, kubectl get pods -n default
+	if len(commands) != 2 {
+		t.Errorf("Expected 2 commands with 3+ args, got %d", len(commands))
+		for _, c := range commands {
+			t.Logf("  %dx: %s (args: %d)", c.Count, c.Command, countArgs(c.Command))
+		}
+	}
+}
+
+func TestGetFrequentCommandsFrom_Limit(t *testing.T) {
+	tmpDir := t.TempDir()
+	histFile := filepath.Join(tmpDir, ".test_history")
+
+	content := `cmd1 arg1
+cmd2 arg1
+cmd3 arg1
+cmd4 arg1
+cmd5 arg1
+`
+	if err := os.WriteFile(histFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("Failed to write test history: %v", err)
+	}
+
+	commands, err := GetFrequentCommandsFrom(histFile, 365, 2, 3)
+	if err != nil {
+		t.Fatalf("GetFrequentCommandsFrom failed: %v", err)
+	}
+
+	if len(commands) != 3 {
+		t.Errorf("Expected 3 commands (limit), got %d", len(commands))
+	}
+}
+
+func TestGetFrequentCommandsFrom_SkipsBkmk(t *testing.T) {
+	tmpDir := t.TempDir()
+	histFile := filepath.Join(tmpDir, ".test_history")
+
+	content := `bkmk add docker ps
+bkmk suggest
+docker ps -a
+`
+	if err := os.WriteFile(histFile, []byte(content), 0o644); err != nil {
+		t.Fatalf("Failed to write test history: %v", err)
+	}
+
+	commands, err := GetFrequentCommandsFrom(histFile, 365, 2, 10)
+	if err != nil {
+		t.Fatalf("GetFrequentCommandsFrom failed: %v", err)
+	}
+
+	// Should only have docker ps -a, bkmk commands filtered out
+	if len(commands) != 1 {
+		t.Errorf("Expected 1 command (bkmk filtered), got %d", len(commands))
+		for _, c := range commands {
+			t.Logf("  %s", c.Command)
+		}
+	}
+
+	if len(commands) > 0 && commands[0].Command != "docker ps -a" {
+		t.Errorf("Expected 'docker ps -a', got %q", commands[0].Command)
+	}
+}
+
+func TestIsMultilineFragment(t *testing.T) {
+	tests := []struct {
+		input      string
+		isFragment bool
+	}{
+		// Line continuations
+		{"git push \\", true},
+		{"docker run \\", true},
+
+		// Too long
+		{strings.Repeat("x", 301), true},
+		{strings.Repeat("x", 300), false},
+
+		// Invalid starts (fragments)
+		{`"num_ctx": 512}}'`, true},
+		{`("=" * 50)`, true},
+		{`) >> "$GITHUB_STEP_SUMMARY"`, true},
+		{`-H "X-GitHub-Api-Version"`, true},
+		{"", true},
+
+		// Valid shell commands
+		{"docker ps -a", false},
+		{"git commit -m 'message'", false},
+		{"kubectl get pods", false},
+		{"./script.sh", false},
+		{"/usr/bin/env bash", false},
+		{"~/bin/tool", false},
+		{"$HOME/bin/tool arg", false},
+	}
+
+	for _, tt := range tests {
+		result := isMultilineFragment(tt.input)
+		if result != tt.isFragment {
+			t.Errorf("isMultilineFragment(%q) = %v, want %v", tt.input, result, tt.isFragment)
+		}
+	}
 }

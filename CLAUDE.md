@@ -1,54 +1,65 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## Build and Test Commands
-
+<BUILD>
 ```bash
-make build      # Build binary to bin/bkmk
-make test       # Run all tests
-make lint       # Run golangci-lint
-make run        # Build and run
+make lint && make test && make build   # Always run all three before completing work
+go test -v -run TestName ./internal/config/   # Single test
 ```
 
-Run a single test:
-```bash
-go test -v -run TestName ./internal/config/
-```
+Version info injected via ldflags: `-X main.Version=... -X main.Commit=... -X main.BuildDate=...`
+</BUILD>
 
-## Architecture
+<ARCHITECTURE>
+Terminal bookmark manager using Bubble Tea TUI framework. Config stored at `~/.config/bkmk/config.yaml`.
 
-bkmk is a lightweight, clean terminal-based command bookmark manager built with the Bubble Tea TUI framework.
+**Packages:**
+- `cmd/bkmk/` - CLI entrypoint, handles subcommands and TUI launch
+- `internal/config/` - YAML config with groups/commands CRUD, auto-backup on save
+- `internal/tui/` - Bubble Tea model with `viewMode` state machine
+- `internal/runner/` - Command execution, clipboard (pbcopy/xclip/xsel)
+- `internal/history/` - Shell history parsing (zsh extended + bash formats)
 
-### Package Structure
+**Data flow:** TUI always works with `FlatCommand` (denormalised). Nested `Command`/`Group` structure only used for YAML serialisation.
 
-- `cmd/bkmk/main.go` - CLI entrypoint, handles both CLI subcommands and TUI launch
-- `internal/config/` - YAML config management at `~/.config/bkmk/config.yaml`, handles groups/commands CRUD
-- `internal/tui/` - Bubble Tea model with multiple view modes (groups, commands, search, history, action selection)
-- `internal/runner/` - Command execution and clipboard operations (pbcopy on macOS, xclip/xsel on Linux)
-- `internal/history/` - Shell history parsing (zsh extended format and bash)
-
-### TUI State Machine
-
-The TUI uses a `viewMode` enum to manage UI states. Key flows:
-- Groups view → Commands view (enter/tab)
-- Any view → Search view (/)
-- Any view → History view (h) → Group selection → Add details
+**State machine flows:**
+- Groups → Commands (enter/tab)
+- Any view → Search (/) or History (h)
 - Commands/Search → Action selection → Run or Copy
+</ARCHITECTURE>
 
-Config changes are saved immediately after each CRUD operation.
+<CONVENTIONS>
+- Config saves immediately on every CRUD operation - no batching
+- Commands have auto-incrementing IDs via `NextID` in config; ID migration runs on load for legacy configs
+- `ActionType` enum: `ActionNone`, `ActionCopy`, `ActionRun` - commands with default_action skip the action menu
+- Backups use microsecond timestamps (`20060102-150405.000000`) for uniqueness and are rotated when a maximum number is reached
+- History skips noise commands: ls, cd, pwd, clear, exit, history
+- Tests use `t.TempDir()` for file fixtures; preserve/restore env vars when testing
+</CONVENTIONS>
 
-### Data Model
+<GOTCHAS>
+**Bubble Tea model type:** `main.go` explicitly handles both `Model` and `*Model` return types from Bubble Tea's `Run()`. Don't assume pointer behaviour.
 
-Commands have unique auto-incrementing IDs (tracked via `NextID` in config). The `FlatCommand` type denormalises group membership for search results.
+**Cursor bounds:** Always clamp cursor after filtering or state changes. Use `maxCursor()` helper and check bounds in filter updates to prevent panics.
 
-## General Information
+**Form inputs are destructive:** Creating new form inputs via `createFormInputs()` clears `formError` and resets focus. No state preserved between form invocations.
 
-- Always build, lint and test from the `make` command entrypoint
-- Always follow the latest golang best practices for 2025
-- When changing or adding new functionality:
-  - Follow the existing code and interface styles
-  - Add a simple, lightweight unit test created
-  - Ensure the README is kept up to date and free off fluff
-  - Always run `make lint && make test && make build` after adding, changing or removing features or functionality and ensure there are no warnings or errors
-- Always use Australian English spelling in all code, comments and documentation
+**No command timeout:** `RunCommand()` passes through stdio directly with no timeout. Long-running commands block the TUI.
+
+**View height:** History page size reserves 8 lines for UI chrome. Terminals under ~13 lines cause pagination issues.
+
+**Platform clipboard:** macOS uses `pbcopy`; Linux falls back to `xclip` then `xsel`. Shell detected from `$SHELL` or defaults to `/bin/sh`.
+</GOTCHAS>
+
+<TESTING>
+Tests alongside implementation files. Table-driven for parsing, temp directories for file I/O.
+
+When modifying TUI handlers, verify cursor boundary handling. When changing config operations, ensure immediate save behaviour preserved.
+</TESTING>
+
+<INSTRUCTIONS>
+- Always use Australian English spelling in code, comments and documentation
+- Run `make lint && make test && make build` after any changes - all must pass with no warnings
+- Add lightweight unit tests for new functionality
+- Follow existing code and interface styles
+- Keep the readme clean, consise and free of fluff
+</INSTRUCTIONS>

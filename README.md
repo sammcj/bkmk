@@ -23,26 +23,19 @@ make build
 # Launch interactive TUI
 bkmk
 
-# Add a group
-bkmk add-group docker
+bkmk --last # Bookmark the last command you ran
 
-# Add a command to a group
-bkmk add docker ps "docker ps -a" "List all containers"
+bkmk history # Browse shell history to add commands
 
-# List all bookmarks
-bkmk list
+bkmk list # List all bookmarks
 
-# Remove a command
-bkmk remove docker ps
+bkmk add-group docker # Add a group
+bkmk remove-group docker # Remove a group
 
-# Remove a group
-bkmk remove-group docker
+bkmk add docker ps "docker ps -a" "List all containers" # Add a command to a group
+bkmk remove docker ps # Remove a command
 
-# Browse shell history to add commands
-bkmk history
-
-# Bookmark the last command you ran
-bkmk --last
+bkmk suggest # Show frequently used commands (good candidates for bookmarking)
 ```
 
 You can optionally add a shell alias for convenience:
