@@ -211,7 +211,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for i := range m.formInputs {
 			m.formInputs[i].Width = msg.Width - 4
 		}
-		return m, nil
+		// Clear screen on resize to prevent content duplication
+		return m, tea.ClearScreen
 	}
 
 	// Update active input
