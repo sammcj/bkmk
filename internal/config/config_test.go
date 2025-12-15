@@ -285,6 +285,7 @@ func TestSaveCreatesDirectory(t *testing.T) {
 func TestBackupCreatedOnSave(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "config.yaml")
+	backupDir := filepath.Join(tmpDir, "backup")
 
 	// Create initial config
 	cfg := &Config{Groups: []Group{{Name: "initial"}}}
@@ -298,8 +299,8 @@ func TestBackupCreatedOnSave(t *testing.T) {
 		t.Fatalf("second SaveTo failed: %v", err)
 	}
 
-	// Check backup was created
-	matches, err := filepath.Glob(filepath.Join(tmpDir, "config.yaml.bak.*"))
+	// Check backup was created in backup subdirectory
+	matches, err := filepath.Glob(filepath.Join(backupDir, "config.yaml.bak.*"))
 	if err != nil {
 		t.Fatalf("Glob failed: %v", err)
 	}
@@ -323,6 +324,7 @@ func TestBackupCreatedOnSave(t *testing.T) {
 func TestBackupPruning(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "config.yaml")
+	backupDir := filepath.Join(tmpDir, "backup")
 
 	cfg := &Config{Groups: []Group{{Name: "test"}}}
 
@@ -339,8 +341,8 @@ func TestBackupPruning(t *testing.T) {
 		}
 	}
 
-	// Check we have exactly maxBackups
-	matches, err := filepath.Glob(filepath.Join(tmpDir, "config.yaml.bak.*"))
+	// Check we have exactly maxBackups in backup subdirectory
+	matches, err := filepath.Glob(filepath.Join(backupDir, "config.yaml.bak.*"))
 	if err != nil {
 		t.Fatalf("Glob failed: %v", err)
 	}
@@ -353,6 +355,7 @@ func TestBackupPruning(t *testing.T) {
 func TestRestoreBackup(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "config.yaml")
+	backupDir := filepath.Join(tmpDir, "backup")
 
 	// Create and save original config
 	cfg := &Config{Groups: []Group{{Name: "original"}}}
@@ -366,8 +369,8 @@ func TestRestoreBackup(t *testing.T) {
 		t.Fatalf("second SaveTo failed: %v", err)
 	}
 
-	// Find the backup
-	matches, err := filepath.Glob(filepath.Join(tmpDir, "config.yaml.bak.*"))
+	// Find the backup in backup subdirectory
+	matches, err := filepath.Glob(filepath.Join(backupDir, "config.yaml.bak.*"))
 	if err != nil || len(matches) == 0 {
 		t.Fatal("no backup found")
 	}
@@ -389,5 +392,178 @@ func TestRestoreBackup(t *testing.T) {
 
 	if loaded.Groups[0].Name != "original" {
 		t.Errorf("expected restored group name 'original', got %q", loaded.Groups[0].Name)
+	}
+}
+
+func TestConfigValidation_UnknownField(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "config.yaml")
+
+	// Write config with unknown field
+	content := `
+unknown_field: test
+groups: []
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write test config: %v", err)
+	}
+
+	_, err := LoadFrom(path)
+	if err == nil {
+		t.Fatal("expected error for unknown field, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "invalid config key") {
+		t.Errorf("expected 'invalid config key' in error, got: %v", err)
+	}
+}
+
+func TestConfigValidation_UnknownGroupField(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "config.yaml")
+
+	// Write config with unknown field in group
+	content := `
+groups:
+  - name: test
+    unknown_field: bad
+    commands: []
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write test config: %v", err)
+	}
+
+	_, err := LoadFrom(path)
+	if err == nil {
+		t.Fatal("expected error for unknown group field, got nil")
+	}
+}
+
+func TestConfigValidation_UnknownCommandField(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "config.yaml")
+
+	// Write config with unknown field in command
+	content := `
+groups:
+  - name: test
+    commands:
+      - name: cmd1
+        command: echo hi
+        unknown_field: bad
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write test config: %v", err)
+	}
+
+	_, err := LoadFrom(path)
+	if err == nil {
+		t.Fatal("expected error for unknown command field, got nil")
+	}
+}
+
+func TestConfigValidation_InvalidActionType(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "config.yaml")
+
+	// Write config with invalid default_action
+	content := `
+groups:
+  - name: test
+    commands:
+      - name: cmd1
+        command: echo hi
+        default_action: invalid_action
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write test config: %v", err)
+	}
+
+	_, err := LoadFrom(path)
+	if err == nil {
+		t.Fatal("expected error for invalid action type, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "invalid default_action") {
+		t.Errorf("expected 'invalid default_action' in error, got: %v", err)
+	}
+}
+
+func TestConfigValidation_EmptyGroupName(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "config.yaml")
+
+	content := `
+groups:
+  - name: ""
+    commands: []
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write test config: %v", err)
+	}
+
+	_, err := LoadFrom(path)
+	if err == nil {
+		t.Fatal("expected error for empty group name, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "empty name") {
+		t.Errorf("expected 'empty name' in error, got: %v", err)
+	}
+}
+
+func TestConfigValidation_EmptyCommandName(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "config.yaml")
+
+	content := `
+groups:
+  - name: test
+    commands:
+      - name: ""
+        command: echo hi
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write test config: %v", err)
+	}
+
+	_, err := LoadFrom(path)
+	if err == nil {
+		t.Fatal("expected error for empty command name, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "empty name") {
+		t.Errorf("expected 'empty name' in error, got: %v", err)
+	}
+}
+
+func TestConfigValidation_ValidConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "config.yaml")
+
+	content := `
+editor: code
+groups:
+  - name: test
+    commands:
+      - name: cmd1
+        command: echo hi
+        description: test command
+        default_action: copy
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write test config: %v", err)
+	}
+
+	cfg, err := LoadFrom(path)
+	if err != nil {
+		t.Fatalf("unexpected error for valid config: %v", err)
+	}
+
+	if cfg.Editor != "code" {
+		t.Errorf("expected editor 'code', got %q", cfg.Editor)
+	}
+	if len(cfg.Groups) != 1 {
+		t.Errorf("expected 1 group, got %d", len(cfg.Groups))
 	}
 }

@@ -2,6 +2,7 @@ package runner
 
 import (
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -76,19 +77,28 @@ func TestRunCommandUsesShell(t *testing.T) {
 
 func TestOpenInEditor(t *testing.T) {
 	tests := []struct {
-		name       string
-		editorEnv  string
-		wantEditor string
+		name             string
+		configuredEditor string
+		editorEnv        string
+		wantEditor       string
 	}{
 		{
-			name:       "uses EDITOR env var",
-			editorEnv:  "nano",
-			wantEditor: "nano",
+			name:             "uses configured editor first",
+			configuredEditor: "code",
+			editorEnv:        "nano",
+			wantEditor:       "code",
 		},
 		{
-			name:       "falls back to vi when EDITOR not set",
-			editorEnv:  "",
-			wantEditor: "vi",
+			name:             "uses EDITOR env var when no configured editor",
+			configuredEditor: "",
+			editorEnv:        "nano",
+			wantEditor:       "nano",
+		},
+		{
+			name:             "falls back to vi when nothing set",
+			configuredEditor: "",
+			editorEnv:        "",
+			wantEditor:       "vi",
 		},
 	}
 
@@ -103,7 +113,7 @@ func TestOpenInEditor(t *testing.T) {
 				os.Setenv("EDITOR", tt.editorEnv)
 			}
 
-			cmd, err := OpenInEditor("/tmp/test")
+			cmd, err := OpenInEditor("/tmp/test", tt.configuredEditor)
 			if err != nil {
 				t.Fatalf("OpenInEditor failed: %v", err)
 			}
@@ -112,13 +122,36 @@ func TestOpenInEditor(t *testing.T) {
 				t.Fatal("Expected command path to be set")
 			}
 
-			if len(cmd.Args) < 2 {
-				t.Fatalf("Expected at least 2 args, got %d", len(cmd.Args))
+			// Command is now: shell -c "editor '/tmp/test'"
+			if len(cmd.Args) < 3 {
+				t.Fatalf("Expected at least 3 args (shell, -c, cmd), got %d", len(cmd.Args))
 			}
 
-			if cmd.Args[1] != "/tmp/test" {
-				t.Errorf("Expected path arg '/tmp/test', got %q", cmd.Args[1])
+			if cmd.Args[1] != "-c" {
+				t.Errorf("Expected '-c' flag, got %q", cmd.Args[1])
+			}
+
+			// Check the command string contains the editor and path
+			cmdStr := cmd.Args[2]
+			if !strings.Contains(cmdStr, tt.wantEditor) {
+				t.Errorf("Expected command to contain editor %q, got %q", tt.wantEditor, cmdStr)
+			}
+			if !strings.Contains(cmdStr, "/tmp/test") {
+				t.Errorf("Expected command to contain path '/tmp/test', got %q", cmdStr)
 			}
 		})
+	}
+}
+
+func TestOpenInEditorWithSpaces(t *testing.T) {
+	cmd, err := OpenInEditor("/path/with spaces/file.txt", "code")
+	if err != nil {
+		t.Fatalf("OpenInEditor failed: %v", err)
+	}
+
+	cmdStr := cmd.Args[2]
+	// Path should be quoted to handle spaces
+	if !strings.Contains(cmdStr, "'/path/with spaces/file.txt'") {
+		t.Errorf("Expected quoted path in command, got %q", cmdStr)
 	}
 }

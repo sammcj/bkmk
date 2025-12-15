@@ -55,6 +55,9 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case viewCommands:
 			m.mode = viewGroups
 			m.cursor = m.selectedGroup
+		case viewAllCommands:
+			m.mode = m.previousMode
+			m.cursor = 0
 		}
 		return m, nil
 
@@ -87,13 +90,26 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if err != nil {
 				return m, nil
 			}
-			editorCmd, err := runner.OpenInEditor(configPath)
+			editorCmd, err := runner.OpenInEditor(configPath, m.config.Editor)
 			if err != nil {
 				return m, nil
 			}
 			return m, tea.ExecProcess(editorCmd, func(err error) tea.Msg {
 				return nil
 			})
+		}
+
+	case "s":
+		if m.mode == viewGroups || m.mode == viewCommands {
+			m.previousMode = m.mode
+			m.mode = viewAllCommands
+			m.cursor = 0
+			return m, nil
+		}
+		if m.mode == viewAllCommands {
+			m.mode = m.previousMode
+			m.cursor = 0
+			return m, nil
 		}
 
 	case "a":
@@ -202,12 +218,19 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		return m.handleSelect()
 
-	case "tab":
-		if m.mode == viewGroups && len(m.groups) > 0 {
+	case "tab", "right", "l":
+		if m.mode == viewGroups && len(m.groups) > 0 && m.cursor < len(m.groups) {
 			m.mode = viewCommands
 			m.selectedGroup = m.cursor
 			m.commands = m.groups[m.cursor].Commands
 			m.cursor = 0
+		}
+		return m, nil
+
+	case "left":
+		if m.mode == viewCommands {
+			m.mode = viewGroups
+			m.cursor = m.selectedGroup
 		}
 		return m, nil
 	}
@@ -684,6 +707,24 @@ func (m *Model) handleSelect() (tea.Model, tea.Cmd) {
 			}
 			// Show action selection
 			m.previousMode = viewSearch
+			m.mode = viewActionSelect
+			m.actionCursor = 0
+			m.actionResult = ""
+			m.actionError = ""
+		}
+	case viewAllCommands:
+		if len(m.flatCommands) > 0 && m.cursor < len(m.flatCommands) {
+			selected := m.flatCommands[m.cursor]
+			m.actionCmd = &selected
+			// If default action is set, execute it directly
+			if selected.DefaultAction == config.ActionCopy {
+				return m.executeAction(config.ActionCopy)
+			}
+			if selected.DefaultAction == config.ActionRun {
+				return m.executeAction(config.ActionRun)
+			}
+			// Show action selection
+			m.previousMode = viewAllCommands
 			m.mode = viewActionSelect
 			m.actionCursor = 0
 			m.actionResult = ""

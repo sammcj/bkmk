@@ -42,6 +42,8 @@ func (m Model) View() string {
 		content = m.viewCommands()
 	case viewSearch:
 		content = m.viewSearch()
+	case viewAllCommands:
+		content = m.viewAllCommands()
 	case viewAddGroup:
 		content = m.viewAddGroup()
 	case viewEditGroup:
@@ -98,7 +100,7 @@ func (m Model) viewGroups() string {
 		}
 	}
 
-	s += "\n" + helpStyle.Render("j/k navigate | enter select | a add | e edit | d delete | h history | o open config | / search | q quit")
+	s += "\n" + helpStyle.Render("j/k navigate | enter select | a add | e edit | d delete | s show all | h history | o open config | / search | q quit")
 
 	return s
 }
@@ -153,7 +155,7 @@ func (m Model) viewCommands() string {
 		}
 	}
 
-	s += helpStyle.Render("j/k navigate | enter select | a add | e edit | d delete | h history | o open config | esc back | q quit")
+	s += helpStyle.Render("j/k navigate | enter select | a add | e edit | d delete | s show all | h history | o open config | esc back | q quit")
 
 	return s
 }
@@ -216,6 +218,99 @@ func (m Model) viewSearch() string {
 	}
 
 	s += helpStyle.Render("ctrl+n/p navigate | enter select | esc back | q quit")
+
+	return s
+}
+
+func (m Model) viewAllCommands() string {
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("205")).
+		MarginBottom(1)
+
+	itemStyle := lipgloss.NewStyle().PaddingLeft(2)
+	selectedStyle := lipgloss.NewStyle().
+		PaddingLeft(2).
+		Foreground(lipgloss.Color("170")).
+		Bold(true)
+
+	groupTagStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("141")).
+		Background(lipgloss.Color("236")).
+		Padding(0, 1)
+
+	cmdStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("245"))
+
+	descStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241")).
+		Italic(true)
+
+	helpStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241")).
+		MarginTop(1)
+
+	s := titleStyle.Render("bkmk: All Bookmarks") + "\n\n"
+
+	if len(m.flatCommands) == 0 {
+		s += itemStyle.Render("No bookmarks yet.") + "\n"
+	} else {
+		idStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+
+		// Calculate available lines for items
+		reservedLines := 6
+		availableLines := m.height - reservedLines
+		if availableLines < 5 {
+			availableLines = 5
+		}
+
+		displayCount := min(availableLines, len(m.flatCommands))
+		totalItems := len(m.flatCommands)
+
+		// Calculate scroll offset to keep cursor visible
+		offset := 0
+		if m.cursor >= displayCount {
+			offset = m.cursor - displayCount + 1
+		}
+		if offset+displayCount > totalItems {
+			offset = max(0, totalItems-displayCount)
+		}
+
+		endIdx := min(offset+displayCount, totalItems)
+		for i := offset; i < endIdx; i++ {
+			cmd := m.flatCommands[i]
+			cursor := "  "
+			style := itemStyle
+			if m.cursor == i {
+				cursor = "> "
+				style = selectedStyle
+			}
+			idTag := idStyle.Render(fmt.Sprintf("[%d] ", cmd.ID))
+			line := style.Render(cursor) + idTag + style.Render(cmd.Name) + " " + groupTagStyle.Render(cmd.GroupName)
+			line += "\n" + itemStyle.Render("    ") + cmdStyle.Render(cmd.Command)
+			if cmd.Description != "" {
+				line += "\n" + itemStyle.Render("    ") + descStyle.Render(cmd.Description)
+			}
+			s += line + "\n\n"
+		}
+
+		// Show scroll indicators
+		if offset > 0 || endIdx < totalItems {
+			scrollInfo := ""
+			if offset > 0 {
+				scrollInfo = fmt.Sprintf("↑ %d more above", offset)
+			}
+			if endIdx < totalItems {
+				if scrollInfo != "" {
+					scrollInfo += " | "
+				}
+				scrollInfo += fmt.Sprintf("↓ %d more below", totalItems-endIdx)
+			}
+			s += itemStyle.Render(scrollInfo) + "\n"
+		}
+	}
+
+	s += helpStyle.Render("j/k navigate | enter select | esc back | q quit")
 
 	return s
 }

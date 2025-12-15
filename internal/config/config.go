@@ -36,8 +36,9 @@ type Group struct {
 }
 
 type Config struct {
-	Groups    []Group `yaml:"groups"`
-	NextID    int     `yaml:"next_id,omitempty"`
+	Groups []Group `yaml:"groups"`
+	NextID int     `yaml:"next_id,omitempty"`
+	Editor string  `yaml:"editor,omitempty"`
 }
 
 func DefaultPath() (string, error) {
@@ -66,14 +67,69 @@ func LoadFrom(path string) (*Config, error) {
 	}
 
 	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("failed to parse config: %w", err)
+	decoder := yaml.NewDecoder(strings.NewReader(string(data)))
+	decoder.KnownFields(true) // Reject unknown fields
+
+	if err := decoder.Decode(&cfg); err != nil {
+		return nil, formatYAMLError(err, path)
+	}
+
+	// Validate config values
+	if err := cfg.validate(); err != nil {
+		return nil, fmt.Errorf("config validation failed: %w", err)
 	}
 
 	// Migration: assign IDs to commands that don't have them
 	cfg.migrateIDs()
 
 	return &cfg, nil
+}
+
+// formatYAMLError converts YAML errors into user-friendly messages
+func formatYAMLError(err error, path string) error {
+	errStr := err.Error()
+
+	// Check for unknown field errors
+	if strings.Contains(errStr, "field") && strings.Contains(errStr, "not found") {
+		return fmt.Errorf("invalid config key in %s: %w\nValid top-level keys: groups, next_id, editor\nValid group keys: name, commands\nValid command keys: id, name, command, description, default_action", path, err)
+	}
+
+	// Check for syntax errors
+	if strings.Contains(errStr, "yaml:") {
+		return fmt.Errorf("YAML syntax error in %s: %w", path, err)
+	}
+
+	return fmt.Errorf("failed to parse config %s: %w", path, err)
+}
+
+// validate checks config values are valid
+func (c *Config) validate() error {
+	validActions := map[ActionType]bool{
+		ActionNone: true,
+		ActionCopy: true,
+		ActionRun:  true,
+		"":         true, // Empty is allowed (defaults to none)
+	}
+
+	for gi, g := range c.Groups {
+		if g.Name == "" {
+			return fmt.Errorf("group at index %d has empty name", gi)
+		}
+
+		for ci, cmd := range g.Commands {
+			if cmd.Name == "" {
+				return fmt.Errorf("command at index %d in group %q has empty name", ci, g.Name)
+			}
+			if cmd.Command == "" {
+				return fmt.Errorf("command %q in group %q has empty command", cmd.Name, g.Name)
+			}
+			if !validActions[cmd.DefaultAction] {
+				return fmt.Errorf("command %q in group %q has invalid default_action %q (valid: none, copy, run)", cmd.Name, g.Name, cmd.DefaultAction)
+			}
+		}
+	}
+
+	return nil
 }
 
 func (c *Config) migrateIDs() {
@@ -141,10 +197,20 @@ func (c *Config) SaveTo(path string) error {
 	return nil
 }
 
+// backupDirFor returns the backup directory path for a given config path
+func backupDirFor(configPath string) string {
+	return filepath.Join(filepath.Dir(configPath), "backup")
+}
+
 // createBackup creates a timestamped backup and prunes old backups beyond maxBackups.
 func createBackup(path string) error {
-	dir := filepath.Dir(path)
+	backupDirPath := backupDirFor(path)
 	base := filepath.Base(path)
+
+	// Ensure backup directory exists
+	if err := os.MkdirAll(backupDirPath, 0o755); err != nil {
+		return fmt.Errorf("failed to create backup directory: %w", err)
+	}
 
 	// Read existing file
 	data, err := os.ReadFile(path)
@@ -155,14 +221,14 @@ func createBackup(path string) error {
 	// Create backup with timestamp (including microseconds for uniqueness)
 	timestamp := time.Now().Format("20060102-150405.000000")
 	backupName := fmt.Sprintf("%s.bak.%s", base, timestamp)
-	backupPath := filepath.Join(dir, backupName)
+	backupPath := filepath.Join(backupDirPath, backupName)
 
 	if err := os.WriteFile(backupPath, data, 0o644); err != nil {
 		return err
 	}
 
 	// Prune old backups
-	return pruneBackups(dir, base)
+	return pruneBackups(backupDirPath, base)
 }
 
 // pruneBackups removes oldest backups if count exceeds maxBackups.
@@ -198,9 +264,9 @@ func ListBackups() ([]string, error) {
 		return nil, err
 	}
 
-	dir := filepath.Dir(path)
+	backupDirPath := backupDirFor(path)
 	base := filepath.Base(path)
-	pattern := filepath.Join(dir, base+".bak.*")
+	pattern := filepath.Join(backupDirPath, base+".bak.*")
 
 	matches, err := filepath.Glob(pattern)
 	if err != nil {

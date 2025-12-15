@@ -14,6 +14,7 @@ const (
 	viewGroups viewMode = iota
 	viewCommands
 	viewSearch
+	viewAllCommands
 	viewAddGroup
 	viewEditGroup
 	viewAddCommand
@@ -273,6 +274,8 @@ func (m Model) maxCursor() int {
 		return max(0, len(m.commands)-1)
 	case viewSearch:
 		return max(0, len(m.filtered)-1)
+	case viewAllCommands:
+		return max(0, len(m.flatCommands)-1)
 	case viewHistory:
 		return max(0, len(m.filteredHistory)-1)
 	case viewHistorySelectGroup:
