@@ -2,7 +2,7 @@
 
 A terminal-based command bookmark manager.
 
-Provides a simple TUI to bookmark, group and search complicated or less frequently used shell commands
+Organise, search and run your bookmarked shell commands from a simple TUI.
 
 ## Installation
 
@@ -20,25 +20,19 @@ make build
 ## Usage
 
 ```bash
-# Launch interactive TUI
-bkmk
+bkmk              # Launch interactive TUI
+bkmk last         # Bookmark the last command you ran
+bkmk history      # Browse shell history to add commands
+bkmk list         # List all bookmarks
+bkmk suggest      # Show frequently used commands worth bookmarking
 
-bkmk last # Bookmark the last command you ran
-
-bkmk history # Browse shell history to add commands
-
-bkmk list # List all bookmarks
-
-bkmk add-group docker # Add a group
-bkmk remove-group docker # Remove a group
-
-bkmk add docker ps "docker ps -a" "List all containers" # Add a command to a group
-bkmk remove docker ps # Remove a command
-
-bkmk suggest # Show frequently used commands that may be good candidates for bookmarking
+bkmk add-group docker
+bkmk remove-group docker
+bkmk add docker ps "docker ps -a" "List all containers"
+bkmk remove docker ps
 ```
 
-You can optionally add a shell alias for convenience:
+Optional shell aliases:
 
 ```bash
 alias b='bkmk'
@@ -47,35 +41,37 @@ alias bl='bkmk last'
 
 ## TUI Controls
 
-| Key              | Action                                                   |
-|------------------|----------------------------------------------------------|
-| `↑/↓` or `j/k`   | Navigate                                                 |
-| `Enter` or `Tab` | Select group / open action menu                          |
-| `/`              | Search all commands (fuzzy)                              |
-| `h`              | Browse shell history to add                              |
-| `Ctrl+N/P`       | Navigate search results                                  |
-| `a`              | Add group (in groups view) or command (in commands view) |
-| `e`              | Edit selected command                                    |
-| `d`              | Delete selected item (with confirmation)                 |
-| `Esc`            | Go back / cancel                                         |
-| `q` or `Ctrl+C`  | Quit                                                     |
+| Key                | Action                              |
+|--------------------|-------------------------------------|
+| `↑/↓` or `j/k`     | Navigate                            |
+| `→` or `Enter/Tab` | Enter group                         |
+| `←` or `Esc`       | Go back                             |
+| `/`                | Search all commands (fuzzy)         |
+| `s`                | Show all bookmarks across groups    |
+| `h`                | Browse shell history                |
+| `a`                | Add group or command                |
+| `e`                | Edit selected item                  |
+| `d`                | Delete selected item                |
+| `o`                | Open config in editor               |
+| `q` or `Ctrl+C`    | Quit                                |
 
 ### Action Menu
 
-When selecting a command, an action menu appears:
+When selecting a command:
 
-| Key     | Action                          |
-|---------|---------------------------------|
-| `r`     | Run the command                 |
-| `c`     | Copy to clipboard               |
-| `Enter` | Execute selected action         |
-| `Esc`   | Cancel                          |
+| Key     | Action              |
+|---------|---------------------|
+| `r`     | Run command         |
+| `c`     | Copy to clipboard   |
+| `Esc`   | Cancel              |
 
 ## Config
 
-Stored at `~/.config/bkmk/config.yaml`
+Stored at `~/.config/bkmk/config.yaml`. Backups saved to `~/.config/bkmk/backup/`.
 
 ```yaml
+editor: code  # Optional: editor for 'o' key (falls back to $EDITOR, then vi)
+
 groups:
   - name: docker
     commands:
@@ -83,10 +79,12 @@ groups:
         name: ps
         command: docker ps -a
         description: List all containers
-        default_action: copy  # optional: copy, run, or none
+        default_action: copy  # Optional: copy, run, or none (default)
 ```
 
-Each command has a unique ID displayed in the TUI for reference. Commands can have a `default_action` that skips the action menu:
-- `copy` - copies to clipboard immediately
-- `run` - runs the command immediately
-- `none` - shows the action menu (default)
+### Default Actions
+
+Set `default_action` on a command to skip the action menu:
+- `copy` - copy to clipboard immediately
+- `run` - run immediately
+- `none` - show action menu (default)
